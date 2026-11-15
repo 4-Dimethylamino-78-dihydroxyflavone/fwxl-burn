@@ -1,0 +1,80 @@
+[package]
+name = "fwxl-burn"
+version = "0.2.1"
+edition = "2024"
+description = "Audio/video transcription and subtitle hardcoding orchestrator"
+license = "MIT"
+repository = "https://github.com/4-Dimethylamino-78-dihydroxyflavone/fwxl-burn"
+readme = "README.md"
+keywords = ["tui", "transcription", "subtitles", "whisper", "ffmpeg"]
+categories = ["command-line-utilities", "multimedia"]
+
+[dependencies]
+# TUI
+ratatui = "0.29"
+crossterm = "0.28"
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+tokio-util = "0.7"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Error handling
+anyhow = "1"
+thiserror = "2"
+
+# CLI
+clap = { version = "4", features = ["derive"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+
+# Utilities
+chrono = "0.4"
+regex = "1"
+dirs = "6"
+walkdir = "2"
+# Clipboard access for Ctrl+V fallback when bracketed paste isn't available
+# (legacy Windows conhost doesn't emit bracketed-paste events).
+arboard = { version = "3", default-features = false }
+# Per-run isolated temp directories so concurrent fwxl-burn instances (or
+# legacy raw files left over from older runs) cannot collide with each other
+# or compete for the same locked output paths.
+tempfile = "3"
+
+# ── Parakeet ASR, in-process and GPU-only ────────────────────────────────
+# ort 2.x wraps ONNX Runtime 1.24, which is built for CUDA 12 + cuDNN 9 and
+# therefore matches the installed toolkit (CUDA 12.1/12.6 + cuDNN 9.5).
+#
+# This replaces the out-of-process `prkt.exe`, which pinned ort v1.16.3 ->
+# ONNX Runtime 1.16.3 -> CUDA 11 + cuDNN 8. Those DLLs (cudart64_110.dll,
+# cudnn64_8.dll, ...) do not exist on this machine, so the CUDA provider
+# could never register and every "GPU" run silently executed on the CPU
+# while still printing "Using CUDA execution" and exiting 0.
+ort = { version = "2.0.0-rc.12", features = ["cuda"] }
+# ort 2.x builds its tensors on ndarray 0.17; keep these in lockstep or
+# `Tensor::from_array` stops accepting our arrays.
+ndarray = "0.17"
+hound = "3.5"
+# Only the blocking API is used, and TLS goes through rustls rather than the
+# default native-tls. On Linux native-tls means linking the system OpenSSL,
+# which both demands libssl-dev at build time and ties a released binary to
+# one distro's libssl version. rustls is pure Rust and behaves the same on
+# every OS.
+hf-hub = { version = "0.4", default-features = false, features = ["ureq", "rustls-tls"] }
+
+[build-dependencies]
+winres = "0.1"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"

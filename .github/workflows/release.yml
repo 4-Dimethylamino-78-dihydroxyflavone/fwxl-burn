@@ -1,0 +1,70 @@
+name: Release
+
+# Pushing a tag like v0.3.0 builds a standalone archive per OS and attaches
+# them to a GitHub release for that tag.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows-x64
+          - os: ubuntu-latest
+            name: linux-x64
+          - os: macos-latest
+            name: macos-arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
+
+      - name: Build
+        run: cargo build --release --locked
+
+      # The archive holds the binary plus the ONNX Runtime provider libraries
+      # the build drops next to it (the CUDA provider is loaded from the
+      # executable's directory at run time), so unpacking it anywhere yields a
+      # working install.
+      - name: Package
+        shell: bash
+        run: |
+          stage="fwxl-burn-${GITHUB_REF_NAME}-${{ matrix.name }}"
+          mkdir "$stage"
+          cp README.md LICENSE config.default.toml "$stage/"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cp target/release/fwxl-burn.exe "$stage/"
+          else
+            cp target/release/fwxl-burn "$stage/"
+          fi
+          find target/release -maxdepth 1 -type f \
+            \( -name 'onnxruntime*.dll' -o -name 'DirectML.dll' \
+               -o -name 'libonnxruntime*' \) -exec cp {} "$stage/" \;
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            7z a "$stage.zip" "$stage"
+          else
+            tar czf "$stage.tar.gz" "$stage"
+          fi
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            fwxl-burn-*.zip
+            fwxl-burn-*.tar.gz
+          fail_on_unmatched_files: false

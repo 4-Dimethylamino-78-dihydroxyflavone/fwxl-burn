@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    # macOS is built to keep it compiling, but nothing is exercised on real
+    # Apple hardware yet, so a failure there is reported without failing CI.
+    continue-on-error: ${{ matrix.experimental }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            experimental: false
+          - os: ubuntu-latest
+            experimental: false
+          - os: macos-latest
+            experimental: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      # ort's build script downloads ONNX Runtime over native-tls, which on
+      # Linux means the system OpenSSL headers. Build-time only.
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
+
+      - name: Build
+        run: cargo build --locked
+
+      # The suite is hermetic: no GPU, no ffmpeg, no network. The tests that
+      # need real hardware are #[ignore]d.
+      - name: Test
+        run: cargo test --locked

@@ -1,0 +1,331 @@
+# fwxl-burn configuration
+# Audio/video transcription and subtitle hardcoding orchestrator.
+#
+# This file is also compiled into the binary: running with no config file on
+# disk uses exactly these values, and `fwxl-burn --init` writes this file out.
+#
+# Paths use forward slashes on every OS. A relative path is looked up from the
+# working directory first, then beside this config file, then beside the
+# fwxl-burn executable.
+
+# Output directory for transcriptions and hardcoded videos.
+# Leave commented out to save to the input file's folder.
+# output_dir = "/path/to/output"
+
+# Create a `source` subfolder for SRT outputs (true/false).
+use_source_folder = true
+
+# FFmpeg Constant Quality value (0-51, lower = better quality). Default: 19.
+cq = 19
+
+# Hardware video encoder for the hardburn. Leave commented out for the
+# platform default: "nvenc" on Windows/Linux, "videotoolbox" on macOS.
+# There is deliberately no software encoder.
+# encoder = "nvenc"
+
+# ──────────────────────────────────────────────
+# Tool Binary Paths
+# ──────────────────────────────────────────────
+# Every entry is optional. Leave a tool commented out and fwxl-burn finds it
+# itself, searching in this order:
+#   1. beside the fwxl-burn executable (and a Faster-Whisper-XXL folder there)
+#   2. beside this config file (and a Faster-Whisper-XXL folder there)
+#   3. Subtitle Edit's Purfview-Whisper-Faster folder (faster-whisper-xxl only)
+#   4. PATH
+# A path you DO set here must exist: it is never silently replaced by another
+# copy found elsewhere. Omit the `.exe` suffix on Linux/macOS.
+[tools]
+# ffmpeg and ffprobe are required.
+# ffmpeg = "/usr/bin/ffmpeg"
+# ffprobe = "/usr/bin/ffprobe"
+
+# faster-whisper-xxl drives the Whisper modes (W, E, Q, I, U, Y). Without it
+# those modes are unavailable; Parakeet, Omnilingual and hardburn still work.
+# whisper = "Faster-Whisper-XXL/faster-whisper-xxl"
+
+# ffplay (optional)
+# ffplay = "Faster-Whisper-XXL/ffplay"
+
+# alass-cli (optional, for subtitle alignment)
+# alass = "Faster-Whisper-XXL/alass-windows64/alass-cli.exe"
+
+# SubtitleEdit (optional, prefers SubtitleEditCmd for silent operation)
+# subtitle_edit = "Faster-Whisper-XXL/SubtitleEdit/SubtitleEditCmd.exe"
+
+# fwxl-audiofix (optional). Repairs interrupted/truncated recordings whose
+# container index was never written. Found automatically when it sits next to
+# the fwxl-burn executable.
+# audiofix = "fwxl-audiofix"
+
+# ──────────────────────────────────────────────
+# Automatic container repair
+# ──────────────────────────────────────────────
+[audio_repair]
+# Repair unreadable inputs automatically instead of failing the run.
+# The source recording is opened read-only and is never modified.
+enabled = true
+
+# Subdirectory (beside the media file) for repaired copies.
+# Set to "" to write them next to the original instead.
+out_subdir = "repaired"
+
+# ──────────────────────────────────────────────
+# Whisper Configuration
+# ──────────────────────────────────────────────
+[whisper]
+# Default model name
+default_model = "large-v2"
+
+# Default model folder name (under _models/)
+default_model_folder = "faster-whisper-large-v2"
+
+# VAD preset argument strings.
+# These are the exact command-line arguments passed to faster-whisper-xxl.exe.
+[whisper.vad_presets]
+# Default: TEN VAD + Reverb diarization + RoFormer vocal extraction
+default = "--vad_method ten --diarize_ff False --voc_device cuda --diarize reverb_v2 --ff_vocal_extract mb-roformer --roformer_vram 8 --beep_off --realign --language en --verbose true --standard"
+
+# Test (W): Silero v6 + RNNDN noise reduction
+test = "--vad_method silero_v6 --vad_threshold 0.70 --compression_ratio_threshold 2.9 --ff_rnndn_xiph --voc_device cuda --beep_off --realign --language en --language_detection_threshold 0.7 --verbose true --standard"
+
+# Smooth (E): Silero v4 + speech padding (gentle, minimal cuts)
+smooth = "--ff_rnndn_sh --ff_speechnorm --beep_off --voc_device cuda --vad_method silero_v4_fw --vad_min_silence_duration_ms 2500 --vad_speech_pad_ms 3000 --standard"
+
+# Quality (Q): Silero v6 + Pyannote v3.1 diarization + embeddings
+exp2_diarize = "--vad_method silero_v6 --vad_threshold 0.60 --compression_ratio_threshold 2.9 --diarize_ff False --voc_device cuda --diarize pyannote_v3.1 --beep_off --realign --multilingual True --verbose true --return_embeddings --standard"
+
+# Inclusive (I): Q's diarization with the VAD gate opened up, so quiet
+# speakers / stutters that Q's 0.60 threshold drops still make the transcript.
+# Exists to A/B against Q and U on the same audio.
+#   *** TUNE HERE *** -- the three knobs that decide who gets kept:
+#   --vad_threshold            0.35  lower = keeps quieter speech (Q uses 0.60)
+#   --vad_min_speech_duration_ms 100 lower = keeps shorter stutters/interjections
+#   --vad_speech_pad_ms        1200  higher = keeps soft syllable onsets/tails (XXL default is 900; Q inherits it)
+diarize_lenient = "--vad_method silero_v6 --vad_threshold 0.35 --vad_min_speech_duration_ms 100 --vad_speech_pad_ms 1200 --compression_ratio_threshold 2.9 --diarize_ff False --voc_device cuda --diarize pyannote_v3.1 --beep_off --realign --multilingual True --verbose true --return_embeddings --standard"
+
+# Chunked (Y): Pyannote v3 + RoFormer vocal extraction
+diarize = "--vad_method pyannote_v3 --voc_device cuda --ff_vocal_extract mb-roformer --roformer_vram 4 --beep_off --realign --multilingual True --verbose true --standard"
+
+# Unfiltered (U): TEN VAD, minimal processing (low memory)
+lite = "--vad_method ten --vad_threshold 0.70 --compression_ratio_threshold 2.9 --voc_device cuda --beep_off --realign --language_detection_threshold 0.7 --multilingual True --verbose true --standard"
+
+# ──────────────────────────────────────────────
+# Batch / queue behavior
+# ──────────────────────────────────────────────
+[batch]
+# Skip a queued file when a canonical SRT for the SAME mode + model already
+# exists in its output dir (i.e. `<stem>.<prefix>.<TAG>.<model>_*.srt`).
+# The on-disk canonical names ARE the transcription index -- nothing to
+# maintain, nothing to go stale. Re-running the same queue with a DIFFERENT
+# mode or model is never skipped, which is what makes A/B comparison runs
+# cheap. Applies to multi-item queues only; a deliberately re-run single file
+# always transcribes.
+skip_existing = true
+
+# Before transcribing a queued file, look for a `<stem>.fwxl-recovery*` folder
+# from a previously failed run and rebuild the SRT from its .json/.vtt/.tsv
+# instead of paying for a full re-transcription. The recovery folder is left
+# untouched.
+recover_quarantine = true
+
+# ──────────────────────────────────────────────
+# Parakeet (in-process, GPU-only)
+# ──────────────────────────────────────────────
+# Parakeet inference is compiled into fwxl-burn itself -- there is no external
+# `prkt.exe` any more. The model is loaded ONCE per run and every chunk streams
+# through it, instead of spawning one process (and one ~2.3 GB model load) per
+# chunk as the old design did.
+#
+# This path is GPU-only by design. There is no `device` setting to switch to
+# CPU: the previous CPU fallback silently absorbed a CUDA runtime mismatch, so
+# a run that cannot reach the GPU now fails loudly instead of quietly taking
+# 10x longer.
+#
+# Requires a loadable CUDA 12 + cuDNN 9 runtime:
+#   Windows: cudart64_12.dll, cublas64_12.dll, cufft64_11.dll, cudnn64_9.dll.
+#            Windows does not search subdirectories of PATH entries -- cuDNN 9
+#            installs that keep DLLs in bin/<cuda-major>/ need those copied up
+#            into a directory that is on PATH.
+#   Linux:   libcudart.so.12, libcublas.so.12, libcufft.so.11, libcudnn.so.9
+#            visible to the dynamic loader (ldconfig or LD_LIBRARY_PATH).
+#   macOS:   not available (no CUDA), so P and O modes cannot run there yet.
+[prkt]
+# CUDA device index.
+device_id = 0
+
+# Weight precision: "fp32" (~2.3 GB, safe default) or "fp16" (~1.2 GB, uses
+# tensor cores). FP16 exports of this model family have a history of producing
+# degenerate output on some runtimes, so verify a transcript before trusting it.
+# Loading happens once per run, so fp32 costs VRAM but no repeated load time.
+precision = "fp32"
+
+# cuDNN convolution algorithm selection:
+#   "heuristic"  - pick by cuDNN's internal heuristic. Near-instant load. (default)
+#   "exhaustive" - benchmark every candidate algorithm at load time. Measured at
+#                  ~190s of startup on this model, versus ~4s to transcribe 92s
+#                  of audio. The session is discarded at the end of each run, so
+#                  that benchmarking never amortises. Only consider it for very
+#                  long single inputs.
+#   "fixed"      - always IMPLICIT_PRECOMP_GEMM. Lowest memory.
+conv_algo_search = "heuristic"
+
+# Optional: override the HuggingFace cache used when a model is fetched by
+# `hf_repo`. Ignored for models that set `model_dir`.
+# model_cache_dir = "tools/prkt/models"
+
+# ── Segmentation (shared by Parakeet P and Omnilingual O) ──────────────
+# "vad"     - Silero VAD on the GPU finds real utterance boundaries. Each SRT
+#             entry is one utterance with tight timestamps. Silence never
+#             reaches the ASR model, and no per-chunk WAV files are written.
+#             (default)
+# "silence" - legacy ffmpeg silencedetect ~target_chunk_sec windows; entries
+#             come out as long multi-sentence strings.
+segmentation = "vad"
+
+# Silero VAD ONNX (v5 schema). Falls back to downloading vad_hf_repo when the
+# file is missing. Runs batched on the GPU: audio is split into vad_batch
+# parallel stripes so a 15-minute file needs ~400 batched GPU calls instead of
+# ~28,000 sequential ones. The default reuses the copy that ships inside a
+# Faster-Whisper-XXL folder when there is one:
+# vad_model = "Faster-Whisper-XXL/_xxl_data/faster_whisper/assets/silero_v5/files/silero_vad.onnx"
+vad_hf_repo = "deepghs/silero-vad-onnx"
+vad_threshold = 0.5
+vad_min_speech_ms = 250
+vad_min_silence_ms = 400
+vad_speech_pad_ms = 150
+# 7s = subtitle readability norm AND the omnilingual export's verified-safe
+# zone (it drops characters on ~13s segments; <=6s tested perfect). Keep <=10.
+vad_max_segment_sec = 7.0
+vad_batch = 64
+
+# Target chunk duration (seconds) for the legacy "silence" segmentation.
+target_chunk_sec = 20
+
+# Tolerance around target chunk size when picking silence boundaries.
+chunk_tolerance_sec = 10
+
+# Silence-detect noise floor (dB) and minimum silence duration (s).
+# For phone/conversational audio, drop silence_min_sec to 0.8 to catch
+# breath-pauses (otherwise chunks balloon to whatever long gaps actually exist).
+silence_db = -30.0
+silence_min_sec = 1.5
+
+# Hardware accelerator for the master-WAV decode pass (Phase 1). "cuda" uses
+# NVDEC on NVIDIA video sources. ffmpeg ignores it on pure-audio inputs so
+# leaving it on is harmless. Set to "" to force CPU decode. Leave commented
+# out for the platform default ("cuda"; "videotoolbox" on macOS).
+# hwaccel = "cuda"
+
+# NOTE: max_parallel / vram_reserve_mib / vram_per_instance_mib /
+# parallel_ceiling are gone. They budgeted VRAM across several concurrent
+# prkt.exe processes, each holding a duplicate copy of the same weights. With
+# one resident model there is nothing to divide. Leftover keys are ignored.
+
+# Phase 1 (audio decode) at BELOW_NORMAL Windows priority. ffmpeg has no GPU
+# audio codec, so the decode is unavoidably CPU-bound -- this just makes it
+# yield to foreground apps so the desktop stays responsive on long files.
+# Same total work, slightly higher wall-clock under contention. Currently a
+# no-op on Linux/macOS.
+low_priority_decode = true
+
+# Available Parakeet models. Either set `hf_repo` (fetched from HuggingFace on
+# first use, then cached) or `model_dir` (a real local directory, read directly
+# with no network access; wins over hf_repo if both are set).
+#
+# `model_dir` must contain: nemo128.onnx, encoder-model.onnx (+ its
+# encoder-model.onnx.data sidecar for fp32), decoder_joint-model.onnx, vocab.txt
+#
+# It genuinely means "local directory" now. The old prkt flag of the same name
+# was actually an HF *cache root*, so pointing it at a checkout ignored those
+# files and re-downloaded ~2.3 GB.
+[[prkt.models]]
+name = "parakeet-tdt-0.6b-v3"
+display = "Parakeet TDT 0.6B v3 ONNX - 25 European languages"
+hf_repo = "istupakov/parakeet-tdt-0.6b-v3-onnx"
+lang_code = "en"
+
+[[prkt.models]]
+name = "parakeet-tdt-0.6b-v2"
+display = "Parakeet TDT 0.6B v2 ONNX - English only"
+hf_repo = "istupakov/parakeet-tdt-0.6b-v2-onnx"
+lang_code = "en"
+
+# ──────────────────────────────────────────────
+# Omnilingual (Meta 1600+ languages, in-process CTC, GPU-only)
+# ──────────────────────────────────────────────
+# Runs through the same chunked pipeline and GPU settings as [prkt] above
+# (device_id, conv_algo_search, chunking knobs). Only the models differ.
+#
+# Each model dir needs the ONNX file (see `filename`) plus tokens.txt.
+# `filename` picks the export: "model.onnx" (fp32, recommended) or
+# "model.int8.onnx" (NOT recommended on GPU -- quantized ops have patchy CUDA
+# coverage and fall back per-node, which silently reintroduces CPU work).
+[[omni.models]]
+name = "omni-300m-ctc"
+display = "Omnilingual 300M CTC - 1600+ languages (fp32, ~1.3 GB VRAM)"
+# Uncomment to read a local copy instead of fetching hf_repo on first use:
+# model_dir = "tools/omnilingual/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-2025-11-12"
+hf_repo = "csukuangfj/sherpa-onnx-omnilingual-asr-1600-languages-300M-ctc-2025-11-12"
+filename = "model.onnx"
+lang_code = "multi"
+
+[[omni.models]]
+name = "omni-1b-ctc"
+display = "Omnilingual 1B CTC - 1600+ languages (fp32, ~4 GB VRAM, higher accuracy)"
+hf_repo = "csukuangfj/sherpa-onnx-omnilingual-asr-1600-languages-1B-ctc-2025-11-12"
+filename = "model.onnx"
+lang_code = "multi"
+
+# ──────────────────────────────────────────────
+# Output Naming
+# ──────────────────────────────────────────────
+[naming]
+# Jellyfin-compatible subtitle filename prefixes
+transcribe_prefix = "FWXL-Transcribe"
+translate_prefix = "FWXL-Translate"
+parakeet_prefix = "Parakeet-Transcribe"
+omnilingual_prefix = "Omnilingual-Transcribe"
+
+# ──────────────────────────────────────────────
+# Subtitle Hardcoding Styles
+# ──────────────────────────────────────────────
+[styles]
+# Default style used when none is selected
+default_style = "youtube"
+
+# ASS force_style strings for each preset
+[styles.presets]
+youtube = "FontName=Arial,FontSize=16.5,PrimaryColour=&H80FFFFFF,OutlineColour=&H40000000,BackColour=&H40000000,BorderStyle=4,Outline=0,Shadow=0,MarginV=8"
+netflix = "FontName=Consolas,FontSize=14,PrimaryColour=&H00FFFFFF,BackColour=&H80000000,BorderStyle=3,Outline=0,Shadow=0,MarginV=18"
+minimal = "FontName=Arial,FontSize=16,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=1,Shadow=0.5,MarginV=20"
+default = "FontName=Arial,FontSize=17,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=0.5,Shadow=0.5,MarginV=14"
+# Youtube look with cue timings adjusted for readability (see [styles.timing]).
+youtube_flow = "FontName=Arial,FontSize=16.5,PrimaryColour=&H80FFFFFF,OutlineColour=&H40000000,BackColour=&H40000000,BorderStyle=4,Outline=0,Shadow=0,MarginV=8"
+
+# Cue-timing rules per style, in milliseconds. Applied ONLY to the temporary
+# copy of the SRT that ffmpeg burns from -- the SRT on disk is never touched.
+# Styles without an entry burn the timings exactly as written. Whisper ends
+# every cue the instant speech stops, which reads as abrupt; these hold each
+# cue a little longer and chain neighbours so the text flows. Any style name
+# from [styles.presets] can be given a table here.
+[styles.timing.youtube_flow]
+bridge_gap_ms = 1500    # gaps up to this long are closed so cues chain
+extend_ms = 800         # across bigger gaps (real pauses) hold the cue this much longer
+min_duration_ms = 1200  # cues shorter than this are lengthened to it when there is room
+min_gap_ms = 80         # ~2 frames: keep a blink between chained cues (0 = seamless)
+
+# ──────────────────────────────────────────────
+# Translation (Python/Argos Translate)
+# ──────────────────────────────────────────────
+[translation]
+# Path to the translation Python script (relative to exe or absolute)
+# script_path = "FasterWhisperXXLBurn (Beta) [VIII].py"
+
+# ──────────────────────────────────────────────
+# PGS/VOBSUB Bitmap Subtitle OCR
+# ──────────────────────────────────────────────
+[ocr]
+# Path to the OCR Python script (relative to exe or absolute)
+# script_path = "FasterWhisperXXLBurn (Beta) [VIII].pgs_ocr.py"
+# OCR language
+lang = "eng"

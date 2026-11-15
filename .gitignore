@@ -1,0 +1,18 @@
+# Build output
+/target
+
+# Downloaded / local model files and legacy tool bundles (multi-GB)
+/tools/
+
+# Local configuration -- machine-specific paths. `fwxl-burn --init` writes
+# this from config.default.toml, which IS tracked.
+/fwxl-burn.toml
+
+# Editor / agent state
+/.claude/
+/.vscode/
+/.idea/
+
+# OS noise
+.DS_Store
+Thumbs.db
