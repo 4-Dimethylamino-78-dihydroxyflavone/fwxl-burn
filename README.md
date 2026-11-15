@@ -55,11 +55,16 @@ longer.
 
 ## Install
 
-Build from source with a stable Rust toolchain (edition 2024, Rust 1.85+):
+Build from source with [rustup](https://rustup.rs):
 
 ```bash
 cargo build --release
 ```
+
+The toolchain is pinned to Rust 1.96 in `rust-toolchain.toml`, and rustup
+installs it automatically on the first build. The pin is deliberate: Rust
+1.100 and later cannot build the ONNX Runtime bindings this version depends
+on (the file explains why, and what lifts the pin).
 
 The binary is `target/release/fwxl-burn` (`fwxl-burn.exe` on Windows). The
 ONNX Runtime provider libraries that the build places next to it
