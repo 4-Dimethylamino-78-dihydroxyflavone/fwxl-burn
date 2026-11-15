@@ -29,8 +29,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Installs the toolchain pinned in rust-toolchain.toml.
-      - name: Install pinned Rust toolchain
+      # Installs the toolchain named in rust-toolchain.toml (stable).
+      - name: Install Rust toolchain
         run: rustup toolchain install
 
       - name: Install Linux build dependencies

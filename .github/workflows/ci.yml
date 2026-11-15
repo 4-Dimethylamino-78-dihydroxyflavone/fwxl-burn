@@ -35,9 +35,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Installs the toolchain pinned in rust-toolchain.toml (see that file for
-      # why it is pinned rather than tracking stable).
-      - name: Install pinned Rust toolchain
+      # Installs the toolchain named in rust-toolchain.toml (stable).
+      - name: Install Rust toolchain
         run: rustup toolchain install
 
       - uses: Swatinem/rust-cache@v2

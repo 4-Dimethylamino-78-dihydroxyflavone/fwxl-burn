@@ -184,7 +184,7 @@ impl ParakeetSession {
     /// this returns [`AsrError::CudaUnavailable`] instead of degrading, because
     /// a silent degrade is what hid a CUDA major-version mismatch for weeks.
     pub fn load(files: &ModelFiles, opts: GpuOptions) -> Result<Self, AsrError> {
-        super::assert_cuda_available(opts.device_id)?;
+        super::assert_cuda_available()?;
 
         let preprocessor = super::build_cuda_session(&files.preprocessor, "preprocessor", opts)?;
         let encoder = super::build_cuda_session(&files.encoder, "encoder", opts)?;

@@ -2,6 +2,7 @@
 name = "fwxl-burn"
 version = "0.2.1"
 edition = "2024"
+rust-version = "1.92"
 description = "Audio/video transcription and subtitle hardcoding orchestrator"
 license = "MIT"
 repository = "https://github.com/4-Dimethylamino-78-dihydroxyflavone/fwxl-burn"
@@ -49,15 +50,23 @@ arboard = { version = "3", default-features = false }
 tempfile = "3"
 
 # ── Parakeet ASR, in-process and GPU-only ────────────────────────────────
-# ort 2.x wraps ONNX Runtime 1.24, which is built for CUDA 12 + cuDNN 9 and
-# therefore matches the installed toolkit (CUDA 12.1/12.6 + cuDNN 9.5).
+# ort 2.0.0-rc.15 wraps ONNX Runtime 1.31. Its prebuilt CUDA binaries are
+# built for CUDA 13 + cuDNN 9 (documented minimum: CUDA 13.2, cuDNN 9.23;
+# verified here against CUDA 13.0 + cuDNN 9.19). CUDA 12 is no longer
+# supported by ONNX Runtime -- ort 2.0.0-rc.12 was the last CUDA 12 release.
 #
 # This replaces the out-of-process `prkt.exe`, which pinned ort v1.16.3 ->
 # ONNX Runtime 1.16.3 -> CUDA 11 + cuDNN 8. Those DLLs (cudart64_110.dll,
 # cudnn64_8.dll, ...) do not exist on this machine, so the CUDA provider
 # could never register and every "GPU" run silently executed on the CPU
 # while still printing "Using CUDA execution" and exiting 0.
-ort = { version = "2.0.0-rc.12", features = ["cuda"] }
+#
+# `lax-feature-matching`: there is no CUDA build of ONNX Runtime for macOS.
+# Without this, ort refuses to link there at all; with it, macOS gets the
+# closest binary and P/O modes fail at run time with CudaUnavailable, which is
+# the documented behaviour. On Windows and Linux the CUDA build is an exact
+# match, so this changes nothing.
+ort = { version = "2.0.0-rc.15", features = ["cuda", "lax-feature-matching"] }
 # ort 2.x builds its tensors on ndarray 0.17; keep these in lockstep or
 # `Tensor::from_array` stops accepting our arrays.
 ndarray = "0.17"

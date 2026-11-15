@@ -24,20 +24,58 @@ pub mod vad;
 pub use parakeet::{ConvSearch, GpuOptions, ModelFiles, ParakeetSession, Precision};
 
 use crate::error::AsrError;
-use ort::ep::CUDA;
+use ort::environment::Environment;
 use ort::ep::cuda::ConvAlgorithmSearch;
-use ort::execution_providers::ExecutionProvider;
+use ort::ep::{CUDA, ExecutionProvider};
 use ort::session::Session;
 use ort::session::builder::GraphOptimizationLevel;
 use std::path::Path;
+use std::sync::OnceLock;
+
+/// The process-wide ONNX Runtime environment.
+///
+/// Since ort 2.0.0-rc.14 every session is built against an explicit
+/// [`Environment`], and `ort::init().build()` succeeds exactly once per
+/// process -- a second call fails with "only one environment is allowed per
+/// process", even after the first environment has been dropped. One run loads
+/// several sessions (VAD, then the ASR graphs) and the TUI runs many files per
+/// process, so the environment is created on first use and kept for the life
+/// of the process.
+///
+/// No execution providers are registered on the environment itself: each
+/// session registers CUDA explicitly with `.error_on_failure()`, so there is
+/// no environment-level default that could quietly put a session on the CPU.
+fn environment() -> Result<&'static Environment, AsrError> {
+    static ENV: OnceLock<Environment> = OnceLock::new();
+    if let Some(env) = ENV.get() {
+        return Ok(env);
+    }
+    // Two threads racing here would both call `build()`, and the loser would
+    // get ort's "only one environment" error. Sessions are loaded from one
+    // pipeline task at a time, but serialise anyway so that can never surface
+    // as a bogus model-load failure.
+    static INIT: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    let _guard = INIT.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(env) = ENV.get() {
+        return Ok(env);
+    }
+    let env = ort::init()
+        .with_name("fwxl-burn")
+        .build()
+        .map_err(|e| AsrError::Runtime {
+            reason: e.to_string(),
+        })?;
+    Ok(ENV.get_or_init(|| env))
+}
 
 /// Probe CUDA availability with a precise error before any session is built.
 ///
-/// Distinguishes "the provider isn't in this build" / "its DLLs won't load"
-/// from a later, vaguer session failure.
-pub(crate) fn assert_cuda_available(device_id: i32) -> Result<(), AsrError> {
-    let probe = CUDA::default().with_device_id(device_id);
-    match probe.is_available() {
+/// Distinguishes "the provider isn't in this build" from a later, vaguer
+/// session failure. This only reports whether ONNX Runtime was *compiled*
+/// with the CUDA provider; whether its runtime libraries actually load is
+/// proven by `.error_on_failure()` in [`build_cuda_session`].
+pub(crate) fn assert_cuda_available() -> Result<(), AsrError> {
+    match CUDA::is_available() {
         Ok(true) => Ok(()),
         Ok(false) => Err(AsrError::CudaUnavailable {
             reason: "ONNX Runtime reports no CUDA execution provider in this build".to_string(),
@@ -71,8 +109,10 @@ pub(crate) fn build_cuda_session(
     // Builder methods return `Error<SessionBuilder>` (recoverable, carrying
     // the builder back) while `commit_from_file` returns a plain `ort::Error`,
     // so the stages are flattened to messages rather than chained with `?`.
+    let env = environment()?;
+
     let built = (|| -> Result<Session, String> {
-        let builder = Session::builder().map_err(|e| e.to_string())?;
+        let builder = Session::builder(env).map_err(|e| e.to_string())?;
         let builder = builder
             .with_execution_providers([cuda])
             .map_err(|e| e.to_string())?;
