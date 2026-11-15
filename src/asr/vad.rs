@@ -62,7 +62,7 @@ impl VadSession {
     /// Load the VAD graph onto the given CUDA device -- same GPU-only,
     /// fail-loud contract as the ASR engines.
     pub fn load(model: &Path, opts: GpuOptions) -> Result<Self, AsrError> {
-        super::assert_cuda_available(opts.device_id)?;
+        super::assert_cuda_available()?;
         let session = super::build_cuda_session(model, "silero VAD", opts)?;
         Ok(Self { session })
     }

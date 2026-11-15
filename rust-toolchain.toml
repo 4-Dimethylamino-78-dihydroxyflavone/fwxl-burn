@@ -1,17 +1,8 @@
-# Pinned on purpose -- do not bump past 1.99 without also upgrading `ort`.
+# Tracks the current stable release. The minimum supported Rust version is
+# 1.92 (set by `ort` 2.0.0-rc.15; see `rust-version` in Cargo.toml).
 #
-# Cargo 1.100 changed the build-directory layout (one extra level under
-# target/<profile>/build). The build script of ort-sys 2.0.0-rc.12 locates the
-# output directory by counting path components up from OUT_DIR, so on 1.100+
-# it panics while copying the ONNX Runtime CUDA provider libraries:
-#
-#   ort-sys-2.0.0-rc.12/build/dynamic_link.rs: called `Result::unwrap()` on an
-#   `Err` value: Os { kind: NotFound, .. }
-#
-# ort 2.0.0-rc.14 fixes this, but it also moves ONNX Runtime 1.24 -> 1.31,
-# raises the MSRV to 1.92 and changes the session API. That upgrade has to be
-# validated against a real CUDA 12 / cuDNN 9 GPU before it lands; until then
-# this pin keeps every checkout building with the compiler the GPU path was
-# verified on. rustup installs this toolchain automatically.
+# This file used to pin 1.96.0, because ort-sys 2.0.0-rc.12 could not build on
+# Cargo 1.100's new build-directory layout. ort 2.0.0-rc.14 fixed that, so the
+# pin is gone.
 [toolchain]
-channel = "1.96.0"
+channel = "stable"

@@ -141,12 +141,13 @@ recover_quarantine = true
 # a run that cannot reach the GPU now fails loudly instead of quietly taking
 # 10x longer.
 #
-# Requires a loadable CUDA 12 + cuDNN 9 runtime:
-#   Windows: cudart64_12.dll, cublas64_12.dll, cufft64_11.dll, cudnn64_9.dll.
+# Requires a loadable CUDA 13 + cuDNN 9 runtime (CUDA 12 is not supported):
+#   Windows: cudart64_13.dll, cublas64_13.dll, cublasLt64_13.dll,
+#            cufft64_12.dll, cudnn64_9.dll.
 #            Windows does not search subdirectories of PATH entries -- cuDNN 9
 #            installs that keep DLLs in bin/<cuda-major>/ need those copied up
 #            into a directory that is on PATH.
-#   Linux:   libcudart.so.12, libcublas.so.12, libcufft.so.11, libcudnn.so.9
+#   Linux:   libcudart.so.13, libcublas.so.13, libcufft.so.12, libcudnn.so.9
 #            visible to the dynamic loader (ldconfig or LD_LIBRARY_PATH).
 #   macOS:   not available (no CUDA), so P and O modes cannot run there yet.
 [prkt]

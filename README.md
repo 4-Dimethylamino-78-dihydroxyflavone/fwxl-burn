@@ -50,8 +50,12 @@ longer.
 - **ffmpeg and ffprobe** (required). Any recent build with the `subtitles`
   filter and your platform's hardware encoder.
 - **Faster-Whisper-XXL** (optional). Needed only for the Whisper modes.
-- **CUDA 12 + cuDNN 9 runtime** (optional). Needed only for Parakeet and
-  Omnilingual.
+- **CUDA 13 + cuDNN 9 runtime** (optional). Needed only for Parakeet and
+  Omnilingual. ONNX Runtime documents CUDA 13.2 / cuDNN 9.23 as the minimum;
+  CUDA 13.0 with cuDNN 9.19 has been verified to work. CUDA 12 is no longer
+  supported. The libraries only need to be on the loader path (`PATH` on
+  Windows, `LD_LIBRARY_PATH` on Linux); a full toolkit install is not
+  required.
 
 ## Install
 
@@ -61,10 +65,8 @@ Build from source with [rustup](https://rustup.rs):
 cargo build --release
 ```
 
-The toolchain is pinned to Rust 1.96 in `rust-toolchain.toml`, and rustup
-installs it automatically on the first build. The pin is deliberate: Rust
-1.100 and later cannot build the ONNX Runtime bindings this version depends
-on (the file explains why, and what lifts the pin).
+Any current stable Rust works; the minimum supported version is 1.92.
+`rust-toolchain.toml` selects `stable`, so rustup picks it up automatically.
 
 The binary is `target/release/fwxl-burn` (`fwxl-burn.exe` on Windows). The
 ONNX Runtime provider libraries that the build places next to it

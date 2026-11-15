@@ -92,8 +92,9 @@ pub enum ToolError {
 /// would send people looking for files that do not exist on their OS.
 fn cuda_runtime_hint() -> &'static str {
     if cfg!(target_os = "windows") {
-        "Verify these are loadable: cudart64_12.dll, cublas64_12.dll, \
-         cufft64_11.dll, cudnn64_9.dll.\n\
+        "Verify these are loadable: cudart64_13.dll, cublas64_13.dll, \
+         cublasLt64_13.dll, cufft64_12.dll, cudnn64_9.dll (CUDA 13 + cuDNN 9; \
+         a CUDA 12 runtime is not enough).\n\
          Note that Windows does NOT search subdirectories of PATH entries, so \
          cuDNN 9 installs that keep their DLLs in bin/<cuda-major>/ are not \
          findable until those DLLs are copied up into a directory on PATH."
@@ -101,8 +102,8 @@ fn cuda_runtime_hint() -> &'static str {
         "CUDA does not exist on macOS, so the in-process engines (Parakeet, \
          Omnilingual) cannot run here yet."
     } else {
-        "Verify the CUDA 12 and cuDNN 9 runtimes are installed and visible to \
-         the dynamic loader: libcudart.so.12, libcublas.so.12, libcufft.so.11, \
+        "Verify the CUDA 13 and cuDNN 9 runtimes are installed and visible to \
+         the dynamic loader: libcudart.so.13, libcublas.so.13, libcufft.so.12, \
          libcudnn.so.9 (check `ldconfig -p | grep -E 'cudart|cudnn'`, or add \
          their directory to LD_LIBRARY_PATH)."
     }
@@ -122,6 +123,11 @@ pub enum AsrError {
         cuda_runtime_hint()
     )]
     CudaUnavailable { reason: String },
+
+    /// ONNX Runtime itself could not be initialised (before any provider or
+    /// model is involved).
+    #[error("Failed to initialise ONNX Runtime: {reason}")]
+    Runtime { reason: String },
 
     #[error("Model file missing: {description} at {path}")]
     ModelFileMissing { description: String, path: PathBuf },

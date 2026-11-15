@@ -100,7 +100,7 @@ impl OmnilingualSession {
     /// Load the CTC graph onto the given CUDA device. GPU-only; a failed
     /// provider registration is a hard error, never a CPU fallback.
     pub fn load(files: &OmniModelFiles, opts: GpuOptions) -> Result<Self, AsrError> {
-        super::assert_cuda_available(opts.device_id)?;
+        super::assert_cuda_available()?;
         let session = super::build_cuda_session(&files.model, "omnilingual CTC", opts)?;
         let vocab = load_tokens(&files.tokens)?;
         Ok(Self { session, vocab })
